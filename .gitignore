@@ -67,6 +67,8 @@ undefined_syms_auto*
 undefined_funcs_auto*
 .DS_STORE
 tools/ido-recomp
+tools/UNFLoader
+tools/UNFLoader.exe
 
 #progress reports
 *.csv

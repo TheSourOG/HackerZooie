@@ -1,8 +1,17 @@
 ### Configuration ###
 BASENAME := banjo
 VERSION  ?= us.v10
-ANTI_TAMPER ?= 1
-ANTI_PIRACY ?= 1
+COMPARE  ?= 0
+ANTI_TAMPER ?= 0
+ANTI_PIRACY ?= 0
+OVERWRITE_ASSETS ?= 0
+
+# Emulator executable used by `make emu`.
+# Example: EMULATOR ?= /home/user/Applications/ares.AppImage
+EMULATOR ?=
+EMULATOR_ARGS ?=
+
+.DEFAULT_GOAL := all 
 
 ifeq ($(VERSION),us.v10)
 	C_VERSION=0
@@ -21,7 +30,6 @@ ifeq ($(VERSION),jp)
 endif
 
 ### Utils ###
-
 # OS detection
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
@@ -37,14 +45,12 @@ else ifeq ($(UNAME_S),Linux)
 else ifeq ($(UNAME_S),Darwin)
 	DETECTED_OS := macos
 endif
-
 # Recomp configuration
 RECOMP_VERSION := v1.2
 RECOMP_FILE := ido-5.3-recomp-$(DETECTED_OS).tar.gz
 RECOMP_URL := https://github.com/decompals/ido-static-recomp/releases/download/$(RECOMP_VERSION)/$(RECOMP_FILE)
 RECOMP_DIR := tools/ido-recomp/$(DETECTED_OS)
 RECOMP_CC := $(RECOMP_DIR)/cc
-
 ifeq ($(wildcard $(RECOMP_CC)),)
   $(info Fetching Recomp...)
   $(shell mkdir -p $(RECOMP_DIR))
@@ -52,11 +58,9 @@ ifeq ($(wildcard $(RECOMP_CC)),)
   $(shell tar xf $(RECOMP_FILE) -C $(RECOMP_DIR))
   $(shell rm $(RECOMP_FILE))
 endif
-
 # MIPS toolchain detection
 find-command = $(shell which $(1) 2>/dev/null)
 find-mips-prefix = $(shell test -n "$(call find-command,$(1)-ld)" && test -n "$(call find-command,$(1)-gcc)" && echo $(1))
-
 MIPS_PREFIX_CANDIDATES := mips64-elf mips-n64 mips64 mips-linux-gnu mips64-linux-gnu mips64-none-elf mips mips-suse-linux
 define _find-mips-toolchain-internal
 $(eval DETECTED_PREFIX :=)
@@ -67,9 +71,7 @@ $(eval _unused := $(foreach prefix,$(MIPS_PREFIX_CANDIDATES),\
 $(if $(DETECTED_PREFIX),,$(error Unable to detect a suitable MIPS toolchain installed))
 $(DETECTED_PREFIX)
 endef
-
 find-mips-toolchain = $(strip $(call _find-mips-toolchain-internal))
-
 ### Tools ###
 
 # System tools
@@ -79,7 +81,6 @@ CD := cd
 RM := rm
 CAT := cat
 DIFF := diff
-
 # Build tools
 CROSS   := $(call find-mips-toolchain)
 CC      := $(RECOMP_CC)
@@ -93,6 +94,11 @@ PYTHON  := .venv/bin/python3
 GREP    := grep -rl
 SPLAT   := $(PYTHON) tools/n64splat/split.py
 PRINT   := printf
+ifneq (,$(call find-command,wslview))
+UNFLOADER         := tools/UNFLoader.exe
+else
+UNFLOADER         := tools/UNFLoader
+endif
 ASM_PROCESSOR_DIR := tools/asm-processor
 BK_ROM_COMPRESS   := tools/bk_rom_compressor/target/release/bk_rom_compress
 BK_ROM_DECOMPRESS := tools/bk_rom_compressor/target/release/bk_rom_decompress
@@ -101,12 +107,10 @@ ASM_PROCESSOR     := $(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py
 SPLAT_INPUTS      := $(PYTHON) tools/splat_inputs.py
 PROGRESS          := $(PYTHON) tools/progress.py
 PROGRESS_READ     := $(PYTHON) tools/progress_read.py
-
 ### Files and Directories ###
 
 # Inputs
 OVERLAYS := core1 core2 MM TTC CC BGS FP lair GV CCW RBB MMM SM fight cutscenes
-
 # Source files
 SRC_ROOT          := src
 ASM_ROOT          := asm
@@ -136,7 +140,6 @@ NEW_FILES := $(NEW_C_SRCS) $(NEW_ASM_SRCS) $(NEW_BINS)
 BOOT_ASM_SRCS := $(filter-out asm/core1/% asm/data/core1/%,$(NEW_ASM_SRCS) $(ALL_ASM_SRCS))
 # Any source files that have GLOBAL_ASM in them or do not exist before splitting
 GLOBAL_ASM_C_SRCS := $(shell $(GREP) GLOBAL_ASM $(SRC_ROOT) </dev/null) $(NEW_C_SRCS)
-
 # Build folders
 C_DIRS         := $(sort $(dir $(C_SRCS) $(NEW_C_SRCS)))
 ASM_DIRS       := $(sort $(dir $(ALL_ASM_SRCS) $(NEW_ASM_SRCS)))
@@ -145,7 +148,6 @@ C_BUILD_DIRS   := $(addprefix $(BUILD_DIR)/,$(C_DIRS))
 ASM_BUILD_DIRS := $(addprefix $(BUILD_DIR)/,$(ASM_DIRS))
 BIN_BUILD_DIRS := $(addprefix $(BUILD_DIR)/,$(BIN_DIRS))
 ALL_DIRS       := $(C_BUILD_DIRS) $(ASM_BUILD_DIRS) $(BIN_BUILD_DIRS) $(BUILD_DIR)
-
 # Build files
 BASEROM              := baserom.$(VERSION).z64
 DECOMPRESSED_BASEROM := decompressed.$(VERSION).z64
@@ -169,7 +171,6 @@ ALL_OBJS             := $(C_OBJS) $(ASM_OBJS) $(BIN_OBJS)
 SYMBOL_ADDRS         := symbol_addrs.$(VERSION).txt
 SYMBOL_ADDR_FILES    := $(filter-out $(SYMBOL_ADDRS), $(wildcard symbol_addrs.*.$(VERSION).txt))
 COMPRESSED_SYMBOLS   := $(BUILD_DIR)/compressed_symbols.txt
-
 # Progress files
 MAIN_PROG_CSV     := progress/progress.bk_boot.csv
 MAIN_PROG_SVG     := progress/progress_bk_boot.svg
@@ -180,7 +181,6 @@ OVERLAY_PROG_SVGS := $(addprefix progress/progress_, $(addsuffix .svg, $(OVERLAY
 README            := README.md
 
 ### Functions ###
-
 # Colorful text printing
 NO_COL  := \033[0m
 RED     := \033[0;31m
@@ -198,14 +198,12 @@ endef
 define print1
   @$(PRINT) "$(GREEN)$(1) $(BLUE)$(2)$(NO_COL)\n"
 endef
-
 # Print message with two arguments (i.e. message arg1 -> arg2)
 define print2
   @$(PRINT) "$(GREEN)$(1) $(YELLOW)$(2)$(GREEN) -> $(BLUE)$(3)$(NO_COL)\n"
 endef
 
 ### Flags ###
-
 # Build tool flags
 CFLAGS         := -c -Wab,-r4300_mul -non_shared -G 0 -Xcpluscomm $(OPT_FLAGS) $(MIPSBIT) -D_FINALROM -DF3DEX_GBI -DVERSION='$(C_VERSION)' -DNDEBUG -DBUILD_VERSION=VERSION_I -DBKDIFFS -DANTI_TAMPER='$(ANTI_TAMPER)' -DANTI_PIRACY='$(ANTI_PIRACY)'
 CFLAGS         += -woff 649,654,838,807
@@ -217,34 +215,66 @@ ASFLAGS        := -EB -mtune=vr4300 -march=vr4300 -mabi=32 -I include
 GCC_ASFLAGS    := -c -x assembler-with-cpp -Wa,-Iinclude -mabi=32 -ffreestanding -mtune=vr4300 -march=vr4300 -mfix4300 -G 0 -O -mno-shared -fno-PIC -mno-abicalls
 LDFLAGS        := -T $(LD_SCRIPT) -Map $(ELF:.elf=.map) --no-check-sections --accept-unknown-input-arch -T manual_syms.$(VERSION).txt
 BINOFLAGS      := -r -b binary
-
 ### Rules ###
+
+# Download and extract the latest UNFLoader build if needed.
+$(UNFLOADER):
+ifeq (,$(wildcard $(UNFLOADER)))
+	@$(PRINT) "Downloading latest UNFLoader...\n"
+	@$(PYTHON) tools/get_latest_unfloader.py tools
+endif
 
 # Default target, all
 all: verify
 
+# Recreate generated state from the baserom, extract vanilla assets, and build.
+# This intentionally discards custom files under assets/. Normal builds preserve them.
+fresh:
+	@$(MAKE) clean
+	@$(RM) -rf $(ASSET_ROOT)
+	@$(MAKE) OVERWRITE_ASSETS=1
+	@$(PRINT) "$(YELLOW)        _\n      _( )_\n     [     ]_\n      ) _   _)\n     [_( )_]$(NO_COL)\n"
+
+# Build, then launch the emulator. Make sure the path is set above.
+emu:
+	@test -n "$(EMULATOR)" || { echo "EMULATOR is not set. Set EMULATOR near the top of the Makefile (for example: EMULATOR ?= /path/to/ares)."; exit 1; }
+	@$(MAKE) $(FINAL_Z64)
+	@"$(EMULATOR)" $(EMULATOR_ARGS) "$(abspath $(FINAL_Z64))"
+
+# Build, then load the compiled rom via UNFLoader + USB.
+n64: $(FINAL_Z64) $(UNFLOADER)
+	$(UNFLOADER) -r $<
+
+# Build, then load the compiled rom via UNFloader + USB for debugging.
+n64-dbg: $(FINAL_Z64) $(UNFLOADER)
+	$(UNFLOADER) -d -r $<
+
 # Shows progress for all overlays, boot, and total
-progress: $(OVERLAY_PROG_CSVS) $(MAIN_PROG_CSV) $(TOTAL_PROG_CSV) 
+progress: $(OVERLAY_PROG_CSVS) $(MAIN_PROG_CSV) $(TOTAL_PROG_CSV)
 	@$(foreach overlay,$(OVERLAYS),$(PROGRESS_READ) progress/progress.$(overlay).csv $(VERSION) $(overlay) &&) \
 	$(PROGRESS_READ) $(MAIN_PROG_CSV) $(VERSION) bk_boot
 	@$(PROGRESS_READ) $(TOTAL_PROG_CSV) $(VERSION) total
 	@head -n 21 $(TOTAL_PROG_SVG) | tail -n 1 | head -c -8 | tail -c +32 | xargs -i sed -i "/# banjo*/c\# banjo ({})" $(README)
-
 # Shows progress for a single overlay (e.g. progress-SM)
 $(addprefix progress-,$(OVERLAYS)) : progress-% : progress/progress.%.csv
 	@$(PROGRESS_READ) $< $(VERSION) $*
-
-# Verify that the roms match, also sets up diff_settings
-ifeq ($(VERSION), us.v10)
+# Optionally compare the compiled ROM against the original.
+ifeq ($(VERSION),us.v10)
 verify: $(BASEROM) $(FINAL_Z64)
-	@$(DIFF) $(BASEROM) $(FINAL_Z64) > /dev/null && \
-	$(PRINT) "$(YELLOW)        _\n      _( )_\n     [     ]_\n      ) _   _)\n     [_( )_]\n$(BLUE)$(BASENAME).$(VERSION).z64$(NO_COL): $(GREEN)OK$(NO_COL)\n" || \
-	$(PRINT) "$(BLUE)$(BASEROM) $(RED)differs$(NO_COL)\n"
+ifeq ($(COMPARE),1)
+		@$(DIFF) $(BASEROM) $(FINAL_Z64) > /dev/null && \
+		$(PRINT) "$(YELLOW)        _\n      _( )_\n     [     ]_\n      ) _   _)\n     [_( )_]\n$(BLUE)$(BASENAME).$(VERSION).z64$(NO_COL): $(GREEN)OK$(NO_COL)\n" || \
+		$(PRINT) "$(BLUE)$(BASEROM) $(RED)differs$(NO_COL)\n"
+endif
+		@$(PRINT) "$(GREEN)Build succeeded.$(NO_COL)\n"
 else
 verify: $(DECOMPRESSED_BASEROM) $(PRELIM_Z64)
-	@$(DIFF) $^ > /dev/null && \
-	$(PRINT) "$(YELLOW)        _\n      _( )_\n     [     ]_\n      ) _   _)\n     [_( )_]\n$(BLUE)$(BASENAME).$(VERSION).z64$(NO_COL): $(GREEN)OK$(NO_COL)\n" || \
-	$(PRINT) "$(BLUE)$(BASEROM) $(RED)differs$(NO_COL)\n"
+ifeq ($(COMPARE),1)
+		@$(DIFF) $^ > /dev/null && \
+		$(PRINT) "$(YELLOW)        _\n      _( )_\n     [     ]_\n      ) _   _)\n     [_( )_]\n$(BLUE)$(BASENAME).$(VERSION).z64$(NO_COL): $(GREEN)OK$(NO_COL)\n" || \
+		$(PRINT) "$(BLUE)$(BASEROM) $(RED)differs$(NO_COL)\n"
+endif
+        @$(PRINT) "$(GREEN)Build succeeded.$(NO_COL)\n"
 endif
 
 $(OVERLAY_PROG_SVGS) : progress/progress_%.svg: progress/progress.%.csv
@@ -258,7 +288,6 @@ $(OVERLAY_PROG_CSVS) : progress/progress.%.csv: $(ELF)
 $(MAIN_PROG_SVG): $(MAIN_PROG_CSV)
 	$(call print1,Creating progress svg for:,boot)
 	@$(PROGRESS_READ) $< $(VERSION) bk_boot
-
 $(MAIN_PROG_CSV): $(ELF)
 	$(call print1,Calculating progress for:,boot)
 	@$(PROGRESS) . $< .boot_bk_boot --version $(VERSION) > $@
@@ -266,12 +295,10 @@ $(MAIN_PROG_CSV): $(ELF)
 $(TOTAL_PROG_SVG): $(TOTAL_PROG_CSV)
 	$(call print0,Creating total progress svg)
 	@$(PROGRESS_READ) $< $(VERSION) total
-	
 
 $(TOTAL_PROG_CSV): $(OVERLAY_PROG_CSVS) $(MAIN_PROG_CSV)
 	$(call print0,Calculating total progress)
 	@cat $^ > $@
-
 # mkdir
 $(ALL_DIRS) :
 	$(call print1,Making folder:,$@)
@@ -287,7 +314,6 @@ $(BOOT_ASM_OBJS) : $(BUILD_DIR)/%.s.o : %.s | $(ASM_BUILD_DIRS)
 	$(call print2,Assembling:,$<,$@)
 	@$(GCC) $(GCC_ASFLAGS) $(INCLUDE_CFLAGS) -o $@ $<
 	@$(OBJCOPY) --prefix-symbols=boot_ $@
-
 # .bin -> .o
 $(BIN_OBJS) : $(BUILD_DIR)/%.bin.o : %.bin | $(BIN_BUILD_DIRS)
 	$(call print2,Embedding:,$<,$@)
@@ -297,14 +323,12 @@ $(BIN_OBJS) : $(BUILD_DIR)/%.bin.o : %.bin | $(BIN_BUILD_DIRS)
 $(BUILD_DIR)/%.c.o : %.c | $(C_BUILD_DIRS)
 	$(call print2,Compiling:,$<,$@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) $(INCLUDE_CFLAGS) $(OPT_FLAGS) $(MIPSBIT) -o $@ $<
-
 # .c -> .o with asm processor
 $(GLOBAL_ASM_C_OBJS) : $(BUILD_DIR)/%.c.o : %.c | $(C_BUILD_DIRS)
 	$(call print2,Compiling (with ASM Processor):,$<,$@)
 	@$(ASM_PROCESSOR) $(OPT_FLAGS) $< > $(BUILD_DIR)/$<
 	@$(CC) -32 $(CFLAGS) $(CPPFLAGS) $(INCLUDE_CFLAGS) $(OPT_FLAGS) $(MIPSBIT) -o $@ $(BUILD_DIR)/$<
 	@$(ASM_PROCESSOR) $(OPT_FLAGS) $< --post-process $@ --assembler "$(AS) $(ASFLAGS)" --asm-prelude include/prelude.s
-
 # .c -> .o (boot)
 $(BOOT_C_OBJS) : $(BUILD_DIR)/%.c.o : %.c | $(C_BUILD_DIRS)
 	$(call print2,Compiling:,$<,$@)
@@ -312,14 +336,12 @@ $(BOOT_C_OBJS) : $(BUILD_DIR)/%.c.o : %.c | $(C_BUILD_DIRS)
 	@$(CROSS)strip $@ -N asdasdasasdasd
 	@$(OBJCOPY) --prefix-symbols=boot_ $@
 	@$(OBJCOPY) --strip-unneeded $@
-
 # Split baserom
 $(BUILD_DIR)/SPLAT_TIMESTAMP: decompressed.$(VERSION).yaml $(SYMBOL_ADDRS) $(DECOMPRESSED_BASEROM) | $(BUILD_DIR)
 	$(call print1,Splitting rom:,$<)
 	@$(SPLAT) decompressed.$(VERSION).yaml
 	@touch $@
 	@touch $(LD_SCRIPT)
-
 # Dummy target to make the LD script and overlay rzips depend on splat being run
 #   without causing it to be rerun once for every overlay
 # Bin files are also dependent on the splat timestamp since they get overwritten on resplit
@@ -328,14 +350,14 @@ $(NEW_FILES) $(LD_SCRIPT) $(ALL_BINS) : $(BUILD_DIR)/SPLAT_TIMESTAMP
 # Dummy target to make sure extraction happens before compilation, mainly for extracted asm
 $(C_SRCS) $(ASM_SRCS) : | $(BUILD_DIR)/SPLAT_TIMESTAMP
 	@:
-
 # .bin -> .yaml
+ifeq ($(OVERWRITE_ASSETS),1)
 $(ASSET_ROOT)/assets.yaml : $(BIN_ROOT)/assets.bin $(BK_ASSET_TOOL)
 	$(call print1,Extracting Assets:,$@)
 	$(BK_ASSET_TOOL) -e $< $(ASSET_ROOT)
-
+endif
 # .yaml -> .
-ifeq ($(VERSION),pal) 
+ifeq ($(VERSION),pal)
 $(ASSET_BIN): $(BIN_ROOT)/assets.bin
 	$(call print2,Copying Asset Binary (install cargo to construct instead):,$<,$@)
 	@$(CP) $< $@
@@ -348,7 +370,6 @@ $(ASSET_BIN): $(BIN_ROOT)/assets.bin
 	$(call print2,Copying Asset Binary (install cargo to construct instead):,$<,$@)
 	@$(CP) $< $@
 endif
-
 # .bin -> .o
 $(ASSET_OBJS): $(ASSET_BIN)
 	$(call print2,Embedding:,$<,$@)
@@ -357,12 +378,11 @@ $(ASSET_OBJS): $(ASSET_BIN)
 # decompress baserom
 $(DECOMPRESSED_BASEROM): $(BASEROM) $(BK_ROM_DECOMPRESS)
 	@$(BK_ROM_DECOMPRESS) $< $@
-	
+
 # .o -> .elf (dummy symbols)
 $(PRELIM_ELF): $(ALL_OBJS) $(LD_SCRIPT) $(ASSET_OBJS) $(BUILD_DIR)/libultra_rom.a $(BUILD_DIR)/libultra_rom_boot.a
 	$(call print1,Linking elf:,$@)
 	@$(LD) $(LDFLAGS) -T rzip_dummy_addrs.$(VERSION).txt $(BUILD_DIR)/libultra_rom.a $(BUILD_DIR)/libultra_rom_boot.a -o $@
-
 # .elf -> .z64 (dummy symbols)
 $(PRELIM_Z64) : $(PRELIM_ELF)
 	$(call print1,Creating z64:,$@)
@@ -371,7 +391,6 @@ $(PRELIM_Z64) : $(PRELIM_ELF)
 # generate compressed ROM symbols
 $(COMPRESSED_SYMBOLS): $(PRELIM_ELF) $(PRELIM_Z64) $(BK_ROM_COMPRESS)
 	@$(BK_ROM_COMPRESS) --symbols $(PRELIM_ELF) $(PRELIM_Z64) $@
-
 # .o -> .elf (game)
 $(ELF): $(ALL_OBJS) $(LD_SCRIPT) $(ASSET_OBJS) $(COMPRESSED_SYMBOLS) $(BUILD_DIR)/libultra_rom.a $(BUILD_DIR)/libultra_rom_boot.a
 	$(call print1,Linking elf:,$@)
@@ -381,11 +400,9 @@ $(ELF): $(ALL_OBJS) $(LD_SCRIPT) $(ASSET_OBJS) $(COMPRESSED_SYMBOLS) $(BUILD_DIR
 $(UNCOMPRESSED_Z64) : $(ELF)
 	$(call print1,Creating z64:,$@)
 	@$(OBJCOPY) $< $@ -O binary $(OCOPYFLAGS)
-
 # .z64 (uncompressed) + .elf -> .z64 (final)
 $(FINAL_Z64) : $(UNCOMPRESSED_Z64) $(ELF) $(BK_ROM_COMPRESS)
 	@$(BK_ROM_COMPRESS) $(ELF) $(UNCOMPRESSED_Z64) $@
-
 # Libultra files
 $(BUILD_DIR)/libultra_rom.a:
 	@$(MAKE) -C lib/ultralib VERSION=I TARGET=libultra_rom COMPARE=0 MODERN_LD=1 setup
@@ -394,20 +411,16 @@ $(BUILD_DIR)/libultra_rom.a:
 
 $(BUILD_DIR)/libultra_rom_boot.a: $(BUILD_DIR)/libultra_rom.a
 	@$(OBJCOPY) --prefix-symbols=boot_ $< $@
-
 # TOOLS
 # Tool for spliting BK asset sections into and from ROM Bin and transforming certain file types
 $(BK_ASSET_TOOL): tools/bk_asset_tool/Cargo.toml tools/bk_asset_tool/Cargo.lock $(wildcard tools/bk_rom_compressor/src/*.rs)
 	@$(CD) tools/bk_asset_tool && cargo build --release 2> /dev/null
-
 # Tool to compress BK and correct checksums from elf and uncompressed rom
 $(BK_ROM_COMPRESS): tools/bk_rom_compressor/Cargo.toml tools/bk_rom_compressor/Cargo.lock $(wildcard tools/bk_rom_compressor/src/comp/*.rs)
 	@$(CD) tools/bk_rom_compressor && cargo build --release --bin bk_rom_compress 2> /dev/null
-
 # Tool to turn compressed BK into uncompressed ROM
 $(BK_ROM_DECOMPRESS): tools/bk_rom_compressor/Cargo.toml tools/bk_rom_compressor/Cargo.lock $(wildcard tools/bk_rom_compressor/src/decomp/*.rs)
 	@$(CD) tools/bk_rom_compressor && cargo build --release --bin bk_rom_decompress 2> /dev/null
-
 clean:
 	$(call print0,Cleaning build artifacts)
 	@$(MAKE) -C lib/ultralib clean
@@ -420,7 +433,6 @@ clean:
 	@$(RM) -rf $(ASM_ROOT)/data
 	@$(RM) -rf $(ASM_ROOT)/core1/*.s
 	@$(RM) -f *.ld
-
 # Per-file flag definitions
 build/$(VERSION)/src/core1/ultra/audio/%.c.o: OPT_FLAGS = -O3
 build/$(VERSION)/src/core1/n_audio/%.c.o: OPT_FLAGS = -O3
@@ -432,7 +444,7 @@ MAKEFLAGS += -r
 .SUFFIXES:
 
 # Phony targets
-.PHONY: all clean verify $(OVERLAYS) progress $(addprefix progress-,$(OVERLAYS))
+.PHONY: all fresh emu n64 n64-dbg clean verify $(ASSET_BIN) $(OVERLAYS) progress $(addprefix progress-,$(OVERLAYS))
 
 
 # Set up pipefail
