@@ -367,7 +367,7 @@ void func_802E4170(void){
     func_8030D8DC();
 }
 
-void func_802E4214(enum map_e map_id){
+void func_802E4214(enum map_e map_id, s32 exit){
     D_8037E8E0.transition = TRANSITION_0_NONE;
     D_8037E8E0.unk19 = D_8037E8E0.unk18 = 0;
     D_8037E8E0.map = D_8037E8E0.exit = D_8037E8E0.unk17 = 0;
@@ -404,7 +404,7 @@ void func_802E4214(enum map_e map_id){
     func_803216D0(map_id);
     func_8030AFA0(map_id);
     func_802E3854();
-    func_802E38E8(map_id, 0, 0);
+    func_802E38E8(map_id, exit, 0);
     D_8037E8E0.unk0 = 0;
     game_setMode(GAME_MODE_3_NORMAL,1);
 }

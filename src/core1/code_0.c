@@ -1,6 +1,8 @@
 #include <ultra64.h>
 #include <PRinternal/macros.h>
 #include <PRinternal/viint.h>
+#include "config/config_cutscenes.h"
+#include "config/config_debug.h"
 #include "core1/core1.h"
 #include "functions.h"
 #include "variables.h"
@@ -65,6 +67,7 @@ u8 pad_8027A138[0x400];
 STACK(sMainThreadStack, 0x1800);
 OSThread sMainThread;
 s32 gBootMap;
+s32 gBootEntry;
 bool sDisableInput;
 u64 sDebugVar_8027BEF0; // never used
 
@@ -100,7 +103,7 @@ void func_8023DA9C(s32 next_state) {
     D_8027A130 = next_state;
     
     if (D_8027A130 == 3) {
-        func_802E4214(gBootMap);
+        func_802E4214(gBootMap, gBootEntry);
     }
 
     if (D_8027A130 == 4) {
@@ -127,11 +130,26 @@ enum map_e getSpecialBootMap(void) {
 }
 
 enum map_e getDefaultBootMap(void) {
+#ifdef TEST_MAP
+    return TEST_MAP;
+#elif defined(SKIP_CUTSCENES)
+    return MAP_91_FILE_SELECT;
+#else
     return MAP_1F_CS_START_RAREWARE;
+#endif
+}
+
+static s32 getDefaultBootEntry(void) {
+#if defined(TEST_MAP) && defined(TEST_ENTRY)
+    return TEST_ENTRY;
+#else
+    return 0;
+#endif
 }
 
 void func_8023DBAC(void) {
     setBootMap(getDefaultBootMap());
+    gBootEntry = getDefaultBootEntry();
     func_8023DFF0(3);
 }
 
@@ -146,6 +164,7 @@ void core1_init(void) {
 #endif
     ucode_load();
     setBootMap(getDefaultBootMap());
+    gBootEntry = getDefaultBootEntry();
     rarezip_init(); //initialize decompressor's huft table
     viMgr_init();
     overlayManager_loadCore2();
@@ -278,6 +297,7 @@ s32 func_8023E000(void) {
 
 void setBootMap(enum map_e map_id) {
     gBootMap = map_id;
+    gBootEntry = 0;
 }
 
 void mainThread_create(void) {

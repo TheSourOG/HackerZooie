@@ -417,7 +417,7 @@ void *defrag_asset(void *);
 void sfxsource_set_fade_distances(u8, f32, f32);
 void func_8030DB04(u8, s32, f32 position[3], f32, f32);
 
-
+void func_802E4214(enum map_e map_id, s32 exit);
 void transitionToMap(enum map_e map, s32 exit, s32 transition);
 void levelSpecificFlags_set(s32, s32);
 void musicKeepsPlaying(void);

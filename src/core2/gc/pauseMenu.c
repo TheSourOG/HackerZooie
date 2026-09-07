@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include "config/config_cutscenes.h"
 #include "core1/core1.h"
 #include "functions.h"
 #include "variables.h"
@@ -1086,9 +1087,14 @@ s32 gcPauseMenu_update(void) {
                         gcPauseMenu_setState(PAUSE_STATE_14_EXIT_GAME);
                     }
                     else {
-                        func_802E412C(1, 0);
-                        transitionToMap(MAP_83_CS_GAME_OVER_MACHINE_ROOM, 0, 1);
-                        gcPauseMenu_setState(PAUSE_STATE_13_EXIT_PAUSE);
+    func_802E412C(1, 0);
+
+            #ifdef SKIP_CUTSCENES
+                    transitionToMap(MAP_91_FILE_SELECT, 0, 1);
+            #else
+                    transitionToMap(MAP_83_CS_GAME_OVER_MACHINE_ROOM, 0, 1);
+            #endif
+                    gcPauseMenu_setState(PAUSE_STATE_13_EXIT_PAUSE);
                     }
                     break;
             }
@@ -1280,7 +1286,11 @@ s32 gcPauseMenu_update(void) {
                 if (!D_80383010.unk3_6) {
                     func_802DC560(0, 0);
                     func_802E412C(1, 0);
+                #ifdef SKIP_CUTSCENES
+                    transitionToMap(MAP_91_FILE_SELECT, 0, 1);
+                #else 
                     transitionToMap(MAP_1F_CS_START_RAREWARE, 0, 1);
+                #endif
                     D_80383010.unk3_6 = 1;
                 }
             }

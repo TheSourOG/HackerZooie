@@ -1,4 +1,6 @@
 #include <ultra64.h>
+#include "config/config_game.h"
+#include "config/config_cutscenes.h"
 #include "functions.h"
 #include "variables.h"
 #include "core2/ch/gameSelect.h"
@@ -490,8 +492,18 @@ void gameSelect_update(Actor *this) {
                     chBottlesBonus_resetCompleted();
 
                     if (!gameFile_isNotEmpty(game_number)) { // New game
-                        timedFunc_set_3(0.0f, (GenFunction_3) transitionToMap, MAP_85_CS_SPIRAL_MOUNTAIN_3, 0, 1);
-                    } else {
+                #if defined(START_MAP) && defined(START_ENTRY)
+                    timedFunc_set_3(0.0f, (GenFunction_3)transitionToMap, START_MAP, START_ENTRY, 1);
+                #elif defined(START_MAP)
+                    timedFunc_set_3(0.0f, (GenFunction_3)transitionToMap, START_MAP, 0, 1);
+                #elif defined(SKIP_CUTSCENES)
+                    timedFunc_set_3(0.0f, (GenFunction_3)transitionToMap, MAP_1_SM_SPIRAL_MOUNTAIN, WARP_SM_12_FROM_HOUSE, 1);
+                #else
+                    timedFunc_set_3(0.0f, (GenFunction_3)transitionToMap, MAP_85_CS_SPIRAL_MOUNTAIN_3, 0, 1);
+                #endif
+                    }
+
+                    else {
                         function_time = 0.0f;
 
                         // Add a little extra time for the silly animation

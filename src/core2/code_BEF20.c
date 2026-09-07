@@ -1,4 +1,5 @@
 #include <ultra64.h>
+#include "config/config_game.h"
 #include "core1/core1.h"
 #include "functions.h"
 #include "variables.h"
@@ -194,6 +195,28 @@ void item_setItemsStartCounts(void){
     itemscore_noteScores_clear();
     itemscore_timeScores_clear();
     D_80385FE4 = FALSE;
+    #ifdef START_WITH_ALL_MOVES
+    ability_setLearned(ABILITY_0_BARGE, TRUE);
+    ability_setLearned(ABILITY_1_BEAK_BOMB, TRUE);
+    ability_setLearned(ABILITY_2_BEAK_BUSTER, TRUE);
+    ability_setLearned(ABILITY_3_CAMERA_CONTROL, TRUE);
+    ability_setLearned(ABILITY_4_CLAW_SWIPE, TRUE);
+    ability_setLearned(ABILITY_5_CLIMB, TRUE);
+    ability_setLearned(ABILITY_6_EGGS, TRUE);
+    ability_setLearned(ABILITY_7_FEATHERY_FLAP, TRUE);
+    ability_setLearned(ABILITY_8_FLAP_FLIP, TRUE);
+    ability_setLearned(ABILITY_9_FLIGHT, TRUE);
+    ability_setLearned(ABILITY_A_HOLD_A_JUMP_HIGHER, TRUE);
+    ability_setLearned(ABILITY_B_RATATAT_RAP, TRUE);
+    ability_setLearned(ABILITY_C_ROLL, TRUE);
+    ability_setLearned(ABILITY_D_SHOCK_JUMP, TRUE);
+    ability_setLearned(ABILITY_E_WADING_BOOTS, TRUE);
+    ability_setLearned(ABILITY_F_DIVE, TRUE);
+    ability_setLearned(ABILITY_10_TALON_TROT, TRUE);
+    ability_setLearned(ABILITY_11_TURBO_TALON, TRUE);
+    ability_setLearned(ABILITY_12_WONDERWING, TRUE);
+    ability_setAllUsed(-1);
+    #endif
 }
 
 void itemscore_levelReset(enum level_e level){
