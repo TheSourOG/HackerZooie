@@ -1,15 +1,35 @@
-# Banjo-Kazooie (100.0000%)
+# HackerZooie
 
-<img src="./progress/progress_total.svg">
+This project, based on [n64decomp/banjo-kazooie](https://github.com/n64decomp/banjo-kazooie), aims to provide a flexible, and convenient base for creating Banjo-Kazooie ROM hacks. **It is not producing a PC Port.**
 
-### Baserom checksums
+## Discord Servers:
 
-- `baserom.us.v10.z64`: `1fe1632098865f639e22c11b9a81ee8f29c75d7a`
-- `baserom.us.v11.z64`: `ded6ee166e740ad1bc810fd678a84b48e245ab80`
-- `baserom.jp.z64`:     `90726d7e7cd5bf6cdfd38f45c9acbf4d45bd9fd8`
-- `baserom.pal.z64`:    `bb359a75941df74bf7290212c89fbc6e2c5601fe`
+### [HackerN64](https://discord.gg/brETAakcXr)
 
-# Building
+### [Hackpack](https://discord.gg/HzqWfGTM3n)
+
+## Getting Started
+
+The recommended base ROM is **Banjo-Kazooie US v1.0**.
+
+Place the ROM in the **root** of the repository as:
+
+```text
+baserom.us.v10.z64
+```
+SHA-1:
+
+```text
+1fe1632098865f639e22c11b9a81ee8f29c75d7a
+```
+You can verify it with:
+
+```bash
+sha1sum baserom.us.v10.z64
+```
+Make sure to go to **include/config/** to toggle features and see what is there.
+
+## Building
 
 The following instructions should work on the following platforms:
 - Ubuntu 18.04 or higher (x86_64)
@@ -20,13 +40,14 @@ The following instructions should work on the following platforms:
 Building Instructions Table Of Contents:
 - [Local (Linux)](#local-linux)
 - [Local (Docker - Linux/macOS)](#local-docker---linuxmacos)
-- [Cloud (GitLab CI)](#cloud-gitlab-ci))
 
 ## Local (Linux)
 
 Works with Ubuntu 18.04 or higher.
 
-### 1. Install dependencies
+### 1. Install Dependencies
+
+From the repository **root**, run:
 
 ```sh
 sudo apt-get update && sudo apt-get install -y $(cat packages.txt)
@@ -35,135 +56,69 @@ git submodule update --init --recursive
 python3 -m venv .venv
 .venv/bin/python3 -m pip install -r requirements.txt
 ```
+Restart your shell after Rust installs.
 
-### 2. Add baserom
+### 2. Make
 
-Add the file for `US v1.0` as `baserom.us.v10.z64` in the project folder.
+The first time you compile a **fresh clone**, use:
 
-(optional): Check the baserom checksum
-
-```sh
-sha1sum baserom.us.v10.z64
+```bash
+make fresh
 ```
-
-The output should match the checksum specified above.
-
-### 3. Build
-
-To extract and build everything simply run:
-
-```sh
-make
-```
-
-If you want to build a specific module, instead do:
-
-```sh
-make <module_id>
-```
-
-...where the following are supported values of `<module_id>`
-- `core1`
-- `core2`
-- `MM`
-- `TTC`
-- `CC`
-- `BGS`
-- `FP`
-- `lair`
-- `GV`
-- `CCW`
-- `RBB`
-- `MMM`
-- `SM`
-- `fight`
-- `cutscenes`
-
-### Version Selection
-
-Drop in `us.v10` `us.v11`, `jp`, or `pal` as `baserom.<version>.z64` e.g. `baserom.us.v11.z64`
-
-```sh
-make VERSION=us.v11
-```
-
+`make fresh` performs a fresh build while extracting the Vanilla assets. This is the command to use when setting up the repository for the first time or when you intentionally want to **reset** assets back to their Vanilla state. `make`, `make emu`, `make n64`, etc. all retain your asset changes.
 
 ## Local (Docker - Linux/macOS)
 
-### 1. Get the Docker image
+Docker can be used to build the repository without installing the build
+dependencies directly on your system.
 
-(if available) you can pull it from GitLab (but you need to be logged in):
+### 1. Build the Docker Image
 
-```sh
-docker login registry.gitlab.com
-docker pull registry.gitlab.com/banjo.decomp/banjo-kazooie:latest
-```
-
-(otherwise) you can build it yourself:
+From the repository **root**, run:
 
 ```sh
-docker build -t banjo-kazooie .
+docker build -t hackerzooie .
 ```
-
-**NOTE for ARM users** (Windows ARM, Raspberry Pi and similar, or Apple Silicon): Use this command instead:
-
-```sh
-docker build --platform linux/amd64 -t banjo-kazooie .
-```
-
-### 2. Add baserom
-
-Follow the same instructions as Step 3 above in "Local (Linux)".
-
-### 3. Run the Docker container
-
-```sh
-docker run -it --rm -v $(pwd):/banjo banjo-kazooie 
-```
-
 **NOTE for ARM users**: Use this command instead:
 
 ```sh
-docker run --platform linux/amd64 -it --rm -v $(pwd):/banjo banjo-kazooie 
+docker build --platform linux/amd64 -t hackerzooie .
 ```
 
-### 4. Build
+### 2. Run the Docker Container
 
-Follow the same instructions as Step 4 above in "Local (Linux)".
+```sh
+docker run -it --rm -v "$(pwd):/banjo" hackerzooie
+```
+**NOTE for ARM users**: Use this command instead:
+
+```sh
+docker run --platform linux/amd64 -it --rm -v "$(pwd):/banjo" hackerzooie
+```
+### 3. Make
+
+Follow the same instructions as above in "Local (Linux)".
 
 To exit Docker, simply type `exit`.
 
-## Cloud (GitLab CI)
+## UNFLoader Support
 
-These are the instructions for building on GitLab CI.
-This applies to the main repo - **if you have a fork**, you will need to follow these steps too!
+The repository supports UNFLoader for use with your flashcart + USB when you run `make n64` or `make n64-dbg`.
 
-### 1. Upload the baserom
+Further instructions can be found at the [official repository](https://github.com/buu342/N64-UNFLoader).
 
-Upload the file for `US v1.0` as `baserom.us.v10.enc.z64` to a remote server where it can be downloaded from with `wget` or `curl`. The file has to be encrypted with `AES-256-CBC`, as follows:
+**NOTE**: Support for debugging over USB in UNFLoader with `make n64-dbg` is still a WIP, compiling with `make n64` should still load the rom to the flashcart however.
 
-```sh
-openssl enc -aes-256-cbc -salt -in baserom.us.v10.z64 -out baserom.us.v10.enc.z64
-```
+## Contributing
 
-Then, upload the encrypted file to a server and get a direct download link.
+Contributions are very welcomed. When contributing a feature, please make it configurable where appropriate like the other **include/config/** features, and avoid unnecessarily breaking compatibility with upstream. Also, please avoid contributing features that **bloat** the repository.
 
-Sharing services like Google Drive, Dropbox, or OneDrive might not work, as they require manual interaction to download the file.
+## Contributors
 
-### 2. Set up environment variables
+TheSourOG
 
-In your GitLab project, go to `Settings > CI/CD > Variables` and add the following variables (for each version):
+**Special Thanks**
 
-- `BASEROM_<VER>_URL`: a direct download URL for the baserom.us.v10.z64 file (see above); this file has to be encrypted with `AES-256-CBC`
-- `BASEROM_<VER>_KEY`: the AES key used to encrypt the baserom file above
-- `BASEROM_<VER>_SHA1`: the SHA1 checksum of the baserom file; simply use the one mentioned above
+The other HackerN64 devs for laying the foundation down.
 
-Replace `<VER>` with the version you are using:
-- `US10`
-- `US11`
-- `JP`
-- `PAL`
-
-### 3. Trigger the pipeline
-
-Push a commit to your repository and you should see a new pipeline starting in the `CI/CD > Pipelines` section! 
+GiantJigglypuff3 for his feature-packed [custom branch](https://gitlab.com/CyrusKashef/banjo-kazooie/-/tree/features/custom_file?ref_type=heads) of the Banjo-Kazooie decompilation.
